@@ -1,21 +1,29 @@
-# Gọi API mỗi 10 phút để server miễn phí của Render không ngủ (ngủ sau 15 phút không có truy cập, mở lại mất khoảng 1 phút).
-# Một dịch vụ chạy cả tháng dùng khoảng 720 giờ, nằm trong 750 giờ miễn phí mỗi tháng của Render.
-# Đặt ở repo công khai này vì repo công khai không giới hạn số phút GitHub Actions (repo mã nguồn để riêng tư).
-# Lịch của GitHub có thể trễ vài phút; GitHub tự tắt lịch sau 60 ngày repo không có hoạt động.
+# Giữ API Thành Phố Tự Lập luôn thức: gói miễn phí của Render cho server ngủ sau 15 phút không có truy cập,
+# và có lúc không thức dậy được. Lịch của GitHub chạy thưa và hay trễ, nên mỗi lượt là một job chạy gần 6 giờ,
+# gọi API mỗi 4 phút. Lượt mới xếp hàng chờ lượt cũ kết thúc (không hủy), nên luôn có một lượt đang chạy.
+# Repo công khai nên không tốn phút GitHub Actions. Một dịch vụ chạy cả tháng dùng khoảng 720 trong 750 giờ miễn phí của Render.
 name: Giữ API thức
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '7 */4 * * *'
   workflow_dispatch:
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
 
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 355
+    env:
+      API_URL: https://thanh-pho-tu-lap.onrender.com
     steps:
-      - name: Gọi /health
-        env:
-          API_URL: https://thanh-pho-tu-lap.onrender.com
+      - name: Gọi /health mỗi 4 phút trong gần 6 giờ
         run: |
-          curl -fsS --retry 3 --retry-delay 20 --max-time 90 "$API_URL/health"
+          end=$((SECONDS + 350 * 60))
+          while [ $SECONDS -lt $end ]; do
+            echo "$(date -u +%H:%M:%S) $(curl -s --max-time 120 -o /dev/null -w '%{http_code}' "$API_URL/health")"
+            sleep 240
+          done
