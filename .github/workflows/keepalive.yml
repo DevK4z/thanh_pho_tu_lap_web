@@ -9,6 +9,11 @@ on:
   schedule:
     - cron: '7 * * * *'
   workflow_dispatch:
+    inputs:
+      phut:
+        description: Số phút chạy (để thử; mặc định 345)
+        required: false
+        default: '345'
 
 concurrency:
   group: keepalive
@@ -26,10 +31,10 @@ jobs:
     steps:
       - name: Gọi /health mỗi 4 phút trong gần 6 giờ
         run: |
-          end=$((SECONDS + 345 * 60))
+          end=$((SECONDS + ${{ inputs.phut || '345' }} * 60))
           while [ $SECONDS -lt $end ]; do
             echo "$(date -u +%H:%M:%S) $(curl -s --max-time 120 -o /dev/null -w '%{http_code}' "$API_URL/health")"
-            sleep 240
+            [ $SECONDS -lt $end ] && sleep $(( end - SECONDS < 240 ? end - SECONDS : 240 ))
           done
       - name: Gọi lượt tiếp theo
         if: always()
